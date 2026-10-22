@@ -11,6 +11,11 @@ the Qwen3-8B text encoder in bf16, as the reference does, and keeps the layers t
 system RAM. It caches each prompt's encoding, so new seeds, guidance or step counts for that prompt skip
 the encoder.
 
+![A contact sheet: two takes of a light hit reaction, front and side rows, with each take's numbers](docs/example_sheet.png)
+
+*`motion.py gen "A person holding a two-handed sword ... flinches as a light hit pushes the upper body back ..." --dur 1 --seeds 1,2`:
+each take's front and side rows, with its numbers above.*
+
 > **Agents:** read [AGENTS.md](AGENTS.md). It covers installing, generating, choosing takes and the pitfalls.
 
 ## Requirements
