@@ -93,6 +93,8 @@ def main():
         sh(py, "-c", code)
 
     (TOOL / "config.json").write_text(json.dumps({"home": str(home)}, indent=1))
+    if a.no_weights:
+        print("(--no-weights: doctor's weight checks fail until install.py --accept-license fetches them)")
     print("$ motion.py doctor", flush=True)
     sys.exit(subprocess.run([str(py), str(TOOL / "motion.py"), "doctor"]).returncode)
 
