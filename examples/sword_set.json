@@ -1,0 +1,207 @@
+[
+ {
+  "name": "hit_chest",
+  "dur": 1.3,
+  "prompt": "A person holding a two-handed sword in front of the body is hit in the chest, flinches backward with the upper body, takes a small step back with the left foot, and recovers into a ready stance, still facing forward."
+ },
+ {
+  "name": "hit_left",
+  "dur": 1.3,
+  "prompt": "A person holding a two-handed sword is hit on the left side of the body, the upper body bends to the right away from the hit, takes a small step to the right, then recovers into a ready stance facing forward."
+ },
+ {
+  "name": "hit_heavy",
+  "dur": 2.2,
+  "prompt": "A person holding a two-handed sword is hit hard on the right shoulder, staggers two steps backward with the knees bending and the upper body folding forward, then straightens up into a ready stance facing forward."
+ },
+ {
+  "name": "broken",
+  "dur": 2.6,
+  "prompt": "A person holding a two-handed sword has the guard knocked aside, both arms are thrown up and out to the right, the person staggers two steps backward, bends forward with the sword hanging low, then slowly straightens up into a ready stance."
+ },
+ {
+  "name": "stepback",
+  "dur": 1.0,
+  "prompt": "A person holding a two-handed sword in front of the body hops backward with both feet, lands softly with the knees bent, and holds a ready stance facing forward."
+ },
+ {
+  "name": "death_fwd",
+  "dur": 2.6,
+  "prompt": "A person holding a two-handed sword is struck, staggers forward, drops to the knees, and falls forward face down onto the ground, lying still."
+ },
+ {
+  "name": "death_back",
+  "dur": 2.2,
+  "prompt": "A person holding a two-handed sword is struck in the chest, stumbles backward and falls onto the back, lying still on the ground."
+ },
+ {
+  "name": "death_side",
+  "dur": 2.3,
+  "prompt": "A person holding a two-handed sword is struck, the knees give way, and the person collapses sideways onto the left side and lies still."
+ },
+ {
+  "name": "db_victim",
+  "dur": 3.5,
+  "prompt": "A person kneels on both knees, exhausted. The body jerks upright as if stabbed in the chest, hangs limp for a moment, then sags and falls forward onto the ground and lies still."
+ },
+ {
+  "name": "deathblow",
+  "dur": 3.5,
+  "prompt": "A person holding a sword in the right hand grabs forward with the left hand, thrusts the sword straight forward at chest height, pushes it deeper, pulls it out to the right with a wide arm, and flicks the blade down to the side."
+ },
+ {
+  "name": "deflect",
+  "dur": 1.2,
+  "prompt": "A person holds a two-handed sword up in front of the face, the blade slanting down to the left, and makes a small sharp snap of both hands out to the left and back, the body almost still, feet planted."
+ },
+ {
+  "name": "block",
+  "dur": 1.5,
+  "prompt": "A person holds a two-handed sword up across the body to block a heavy blow, the knees bend and the shoulders sink as the body is pushed back a little, then rises back up still holding the guard."
+ },
+ {
+  "name": "recoil",
+  "dur": 1.5,
+  "prompt": "A person swinging a two-handed sword down from the right shoulder has it bounce off something hard, both arms are knocked up and back over the right shoulder, the upper body rocks back, a half step back, then returns to a ready stance."
+ },
+ {
+  "name": "clash",
+  "dur": 1.3,
+  "prompt": "A person swinging a two-handed sword is jolted backward as the sword hits another sword, the shoulders and chest pushed back, a half step back with the left foot, then recovers into a ready stance facing forward."
+ },
+ {
+  "name": "heavy270",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword raises it straight up above the head with both hands, steps forward with the right foot, and cuts straight down to waist height, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy225",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword lifts it above the right shoulder with both hands, steps forward with the right foot, and slashes diagonally down across the body to the left hip, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy315",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword lifts it above the left shoulder with both hands, steps forward with the right foot, and slashes diagonally down across the body to the right hip, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy180",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword draws it back to the right side at waist height, steps forward with the right foot, and slashes horizontally from right to left across the waist, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy000",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword draws it across to the left side at waist height, steps forward with the right foot, and slashes horizontally from left to right across the waist, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy135",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword lowers it beside the right knee, steps forward with the right foot, and slashes diagonally upward from the lower right to above the left shoulder, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy045",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword lowers it beside the left knee, steps forward with the right foot, and slashes diagonally upward from the lower left to above the right shoulder, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "heavy090",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword lowers it between the knees, steps forward with the right foot, and cuts straight upward to above the head, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light270",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short cut straight down from the forehead to the waist with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light225",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short slash from the right shoulder down to the left hip with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light315",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short slash from the left shoulder down to the right hip with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light180",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short horizontal slash from right to left at chest height with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light000",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short horizontal slash from left to right at chest height with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light135",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short rising slash from the lower right to the upper left with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light045",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short rising slash from the lower left to the upper right with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "light090",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword makes a quick short rising cut straight up from the waist to the forehead with a small step forward, facing forward the whole time, then returns to a ready stance."
+ },
+ {
+  "name": "dash",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword at the right hip lunges far forward with the right foot and thrusts the sword straight ahead with both arms extended at chest height, holds the thrust briefly, then steps back into a ready stance."
+ },
+ {
+  "name": "riposte",
+  "dur": 1.2,
+  "prompt": "A person holding a two-handed sword quickly slashes diagonally down from the right shoulder to the left hip with a short step forward, then returns to a ready stance facing forward."
+ },
+ {
+  "name": "feint",
+  "dur": 2.0,
+  "prompt": "A person holding a two-handed sword starts to raise it overhead, stops halfway, pulls it back down in front, and quickly slashes horizontally from left to right at the waist, then returns to a ready stance."
+ },
+ {
+  "name": "flurry",
+  "dur": 3.0,
+  "prompt": "A person holding a two-handed sword runs forward and slashes twice, first from right to left and then from left to right at waist height, then stops in a ready stance."
+ },
+ {
+  "name": "ready_idle",
+  "dur": 4.0,
+  "prompt": "A person stands in a ready stance holding a two-handed sword in front of the body pointing forward, the right foot slightly forward, breathing calmly with small weight shifts."
+ },
+ {
+  "name": "guard_hold",
+  "dur": 4.0,
+  "prompt": "A person stands holding a two-handed sword high beside the right side of the head with the blade slanting forward, breathing steadily, shifting weight slightly between the feet."
+ },
+ {
+  "name": "walk",
+  "dur": 3.0,
+  "prompt": "A person holding a two-handed sword in front of the body with both hands, pointing forward, walks forward slowly."
+ },
+ {
+  "name": "run",
+  "dur": 2.0,
+  "prompt": "A person runs forward holding a two-handed sword low at the right side with both hands."
+ },
+ {
+  "name": "strafe_l",
+  "dur": 3.0,
+  "prompt": "A person holding a two-handed sword in front of the body with both hands steps sideways to the left, facing forward."
+ },
+ {
+  "name": "strafe_r",
+  "dur": 3.0,
+  "prompt": "A person holding a two-handed sword in front of the body with both hands steps sideways to the right, facing forward."
+ },
+ {
+  "name": "walk_back",
+  "dur": 3.0,
+  "prompt": "A person holding a two-handed sword in front of the body walks backward slowly, facing forward."
+ }
+]

@@ -1,0 +1,11 @@
+transformers>=4.51,<5
+accelerate>=1.0
+torchdiffeq==0.2.5
+einops
+scipy
+numpy
+matplotlib
+pyyaml
+safetensors
+huggingface_hub
+hf_xet
