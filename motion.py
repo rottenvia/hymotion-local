@@ -56,7 +56,7 @@ def hy_home():
 
 HY = hy_home()
 VENV = HY / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-if VENV.exists() and Path(sys.executable).resolve() != VENV.resolve():
+if __name__ == "__main__" and VENV.exists() and Path(sys.executable).resolve() != VENV.resolve():  # (imported, it leaves its host be)
     sys.exit(subprocess.call([str(VENV), str(Path(__file__).resolve()), *sys.argv[1:]]))
 
 import numpy as np
