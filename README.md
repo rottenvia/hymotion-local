@@ -86,7 +86,8 @@ The numbers printed per take, also in `job.json` and on the sheet:
 - `lead foot`: which ankle is ahead and by how much, at the start and at the end (`R0.25` = the right foot is 0.25 m ahead).
 - `skate`: metres a planted foot slides.
 - `cross`: how far the feet cross over, in metres along the hips' own left (shown when 5 cm or more). Sidesteps
-  often cross over (a grapevine), whatever the prompt says.
+  asked as "steps to the side" cross over (a grapevine); "small sliding steps: the left foot steps out to the
+  left, then the right foot slides after it" keeps them apart.
 - `hands`: the median wrist-to-wrist distance (about 0.1-0.2 m means both hands are on one handle).
 - `hips`: the lowest and highest hip height.
 
