@@ -67,7 +67,10 @@ After each job, open `<out>/<name>/sheet1.png`; it is an image, so read it.
   lock) or choose another take.
 - Loops: generate a walk, run or idle of 4-5 s, then `python motion.py loop <out>/<name>` (idles:
   `--min 2 --max 4`). It writes `<name>_loop/`, one seamless loop per take. Choose by its numbers: `seam`
-  under about 5 cm, `speed` near the speed your game moves at, and `skate` low.
+  under about 5 cm, `speed` near the speed your game moves at, `skate` low, and no `squared by turning`
+  past ~10 deg (the body would face off its way). Sidesteps cross the feet unless asked for "small
+  sliding steps: the left foot steps out, then the right slides after it". One good side + `motion.py
+  mirror <out>/<name>_loop --seeds N` makes the other.
 - No scene, camera, emotion, clothing or second person.
 
 ## 5. Hand the take over

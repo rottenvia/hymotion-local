@@ -232,7 +232,8 @@ def measure(k):
 def describe(m):
     if "period" in m:  # (a loop: its cycle first)
         return (f"loop {m['period']:.2f}s from {m['start']:.2f}s, seam {m['seam']:.1f} cm, {m['speed']:.2f} m/s at "
-                f"{m['way']:+.0f} deg (90 = its right); " + describe({k: v for k, v in m.items() if k != "period"}))
+                f"{m['way']:+.0f} deg (90 = its right)" + (f", squared by turning {m['squared']:+.0f} deg" if abs(m.get("squared", 0)) >= 5 else "")
+                + "; " + describe({k: v for k, v in m.items() if k != "period"}))
     lead = "/".join(("R" if v > 0 else "L") + f"{abs(v):.2f}" for v in m["lead"])
     return (f"fwd {m['fwd']:+.2f} right {m['right']:+.2f} (far {m['far']:.2f}) m, yaw {m['yaw']:+.0f} "
             f"(max {m['yaw_max']:.0f}), lead foot {lead}, skate {m['skate']:.2f} m"
@@ -346,7 +347,7 @@ def make_loop(poses, trans, k, s, P, blend, align="travel"):
     the heading's drift over the cycle taken out, the last `blend` frames eased onto the cycle before it
     (the same phase one period earlier), and the whole loop turned to face +Z on average (align "body"),
     or (align "travel") so that it travels straight ahead, right, back or left, whichever is nearest; its
-    hips start over the origin. Returns (poses, trans)."""
+    hips start over the origin. Returns (poses, trans, the degrees it was turned off its chest to square its way)."""
     from scipy.spatial.transform import Rotation
     j = skeleton()[0]
     nj = poses.shape[1] // 3
@@ -377,14 +378,22 @@ def make_loop(poses, trans, k, s, P, blend, align="travel"):
     f = facing(kk)
     face = np.arctan2(f[:, 0].mean(), f[:, 2].mean())
     trav = Rotation.from_rotvec([0, -face, 0]).apply(D)
+    turn = 0.0
     if align == "travel" and np.hypot(trav[0], trav[2]) > 0.05:  # (its way onto the nearest of ahead, right,
         way = np.arctan2(-trav[0], trav[2])  # back and left: a sword stance walks 10-20 deg off its chest)
-        face -= way - np.round(way / (np.pi / 2)) * (np.pi / 2)
+        turn = way - np.round(way / (np.pi / 2)) * (np.pi / 2)
+        face -= turn
     R = Rotation.from_rotvec([0, -face, 0])
     out[:, :3] = (R * Rotation.from_rotvec(out[:, :3])).as_rotvec()
     root = R.apply(j[0] + ot)
     root[:, [0, 2]] -= root[0, [0, 2]]
-    return out, root - j[0]
+    return out, root - j[0], float(np.degrees(turn))
+
+
+def merged(d, seeds, takes):
+    """takes, plus (when only some seeds were redone) the others already in d/job.json, by seed."""
+    old = json.loads((d / "job.json").read_text())["takes"] if seeds and (d / "job.json").exists() else []
+    return sorted([t for t in old if t["seed"] not in seeds] + takes, key=lambda t: t["seed"])
 
 
 def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel", speed=0.0):
@@ -404,7 +413,7 @@ def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel", speed=0.0):
         except ValueError as err:
             print(f"   s{t['seed']}: skipped, {err}", flush=True)
             continue
-        poses, trans = make_loop(z["poses"], z["trans"], z["keypoints"], s, P, round(blend * FPS), align)
+        poses, trans, turn = make_loop(z["poses"], z["trans"], z["keypoints"], s, P, round(blend * FPS), align)
         k = fk(poses, trans, j, parents)
         rel = k[:, :22] - k[:, :1] * [1, 0, 1]
         assert np.abs(rel[-1] - rel[0]).max() < 1e-3, "the loop's ends don't meet"
@@ -413,13 +422,56 @@ def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel", speed=0.0):
         write_bvh(d / f"{stem}.bvh", poses, trans, j, parents, sole)
         m = measure(k)
         trav = k[-1, 0] - k[0, 0]
-        m.update(start=round(s / FPS, 2), period=round(P / FPS, 2), seam=round(cost * 100, 1),
+        m.update(start=round(s / FPS, 2), period=round(P / FPS, 2), seam=round(cost * 100, 1), squared=round(turn),
                  speed=round(float(np.linalg.norm(trav[[0, 2]])) * FPS / P, 2),
                  way=round(float(np.degrees(np.arctan2(-trav[0], trav[2]))), 0) if np.linalg.norm(trav[[0, 2]]) > 0.05 else 0.0)
         takes.append(dict(seed=t["seed"], bvh=f"{stem}.bvh", npz=f"{stem}.npz", m=m))
         print(f"   s{t['seed']}: {describe(m)}", flush=True)
     (d / "job.json").write_text(json.dumps({**job, "name": name, "loop": dict(min=pmin, max=pmax, blend=blend, align=align),
-                                            "takes": takes}, indent=1))
+                                            "takes": merged(d, seeds, takes)}, indent=1))
+    for p in draw(d, job.get("cols", 8)):
+        print(f"   sheet {p}", flush=True)
+
+
+# SMPL-H joints swapped by a mirror: the body's left/right pairs, then each hand's 15 joints for the other's
+MIRROR = list(range(52))
+for _a, _b in [(1, 2), (4, 5), (7, 8), (10, 11), (13, 14), (16, 17), (18, 19), (20, 21)] + [(22 + i, 37 + i) for i in range(15)]:
+    MIRROR[_a], MIRROR[_b] = _b, _a
+
+
+def mirror(poses, trans, j):
+    """A take mirrored left for right (through the plane the body faces along): each joint's rotation from its
+    twin's, turned about X only, the hips' path across. Returns (poses, trans)."""
+    r = poses.reshape(len(poses), -1, 3)[:, MIRROR] * [1, -1, -1]
+    t = trans * [-1, 1, 1]
+    t[:, 0] -= 2 * j[0, 0]  # (the hips, j[0] + trans, mirrored, not their offset)
+    return r.reshape(len(poses), -1), t
+
+
+def mirror_job(job_dir, seeds):
+    """<job>_mirror/: each take mirrored (BVH, npz, job.json with its numbers, sheets). A loop stays a loop."""
+    job = json.loads((job_dir / "job.json").read_text())
+    j, parents, sole = skeleton()
+    name = job["name"] + "_mirror"
+    d = job_dir.parent / name
+    d.mkdir(exist_ok=True)
+    takes = []
+    for t in job["takes"]:
+        if seeds and t["seed"] not in seeds:
+            continue
+        z = np.load(job_dir / t["npz"])
+        poses, trans = mirror(z["poses"], z["trans"], j)
+        k = fk(poses, trans, j, parents)
+        stem = f"{name}_{t['seed']}"
+        np.savez(d / f"{stem}.npz", keypoints=k, poses=poses, trans=trans, fps=FPS)
+        write_bvh(d / f"{stem}.bvh", poses, trans, j, parents, sole)
+        m = measure(k)
+        if "period" in t["m"]:  # (a loop's cycle numbers carry over, its way across)
+            m.update({key: t["m"][key] for key in ("start", "period", "seam", "speed") if key in t["m"]})
+            m.update(way=-t["m"]["way"] if abs(t["m"]["way"]) % 180 else t["m"]["way"], squared=-t["m"].get("squared", 0))
+        takes.append(dict(seed=t["seed"], bvh=f"{stem}.bvh", npz=f"{stem}.npz", m=m))
+        print(f"   s{t['seed']}: {describe(m)}", flush=True)
+    (d / "job.json").write_text(json.dumps({**job, "name": name, "mirror": job["name"], "takes": merged(d, seeds, takes)}, indent=1))
     for p in draw(d, job.get("cols", 8)):
         print(f"   sheet {p}", flush=True)
 
@@ -562,6 +614,13 @@ def doctor():
         steady = fk(steady_head(smpl["poses"], j), smpl["trans"], j, parents)[:, :22]
         moved = np.abs(steady - mine).max()
         check(moved < 1e-6, f"steady_head moves no joint (max {moved:.1e} m)")
+        p0, t0 = np.asarray(smpl["poses"], dtype=np.float64), np.asarray(smpl["trans"], dtype=np.float64)
+        mp, mt = mirror(p0, t0, j)
+        bp, bt = mirror(mp, mt, j)
+        twice = max(np.abs(bp - p0).max(), np.abs(bt - t0).max())
+        off = np.abs(fk(mp, mt, j, parents)[:, :22][:, MIRROR[:22]] * [-1, 1, 1] - mine).max()
+        check(twice < 1e-9 and off < 0.02, f"mirror: twice gives the take back (max {twice:.1e}), once its reflection "
+              f"(max {off * 100:.1f} cm, the body model's own asymmetry)")
     print("ready" if ok else "not ready")
     return ok
 
@@ -594,14 +653,20 @@ def main():
     lp.add_argument("--blend", type=float, default=0.25)
     lp.add_argument("--align", choices=("travel", "body"), default="travel")
     lp.add_argument("--speed", type=float, default=0.0)
+    mp = sub.add_parser("mirror")
+    mp.add_argument("job")
+    mp.add_argument("--seeds", default="")
     sub.add_parser("doctor")
     a = ap.parse_args()
     a.cwd = os.getcwd()
-    if a.cmd == "loop":
+    if a.cmd in ("loop", "mirror"):
         os.chdir(HY)
         sys.path.insert(0, str(HY))
         d = Path(a.cwd, a.job).resolve()
-        return loop_job(d, [int(v) for v in a.seeds.split(",") if v.strip()], a.min, a.max, a.blend, a.align, a.speed)
+        seeds = [int(v) for v in a.seeds.split(",") if v.strip()]
+        if a.cmd == "mirror":
+            return mirror_job(d, seeds)
+        return loop_job(d, seeds, a.min, a.max, a.blend, a.align, a.speed)
     if a.cmd in ("sheet", "fbx"):
         d = Path(a.job).resolve()
         job = json.loads((d / "job.json").read_text())

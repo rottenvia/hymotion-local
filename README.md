@@ -64,6 +64,7 @@ python motion.py batch examples/sword_set.json --out clips
 python motion.py sheet motion_out/slash --seed 2      # a close-up of one take
 python motion.py fbx motion_out/slash                 # FBX copies through Blender
 python motion.py loop motion_out/walk                 # each take's best cycle as a seamless loop
+python motion.py mirror motion_out/walk_loop --seeds 3  # take 3 left for right (a strafe's other side)
 python motion.py doctor
 ```
 
@@ -124,12 +125,23 @@ in `JOB_DIR_loop/` (BVH, npz, sheets and `job.json`, laid out like a job, so `sh
   phase one period earlier, so the last frame is the first one moved by a cycle's travel.
 - `--align travel` (the default) turns the loop so that it travels straight ahead, back, right or left,
   whichever is nearest: a sword stance walks 10-20 deg off its chest. `--align body` faces it +Z instead.
+  The report says `squared by turning N deg` when that took 5 deg or more. Past about 10 deg the body
+  visibly faces off its way: asked to run sideways, the model often runs 20-40 deg diagonally.
 - For an idle, ask for a longer, slower cycle: `--min 2 --max 4`.
 - `--speed` (m/s) skips stretches that move slower: a run that slows to a stop matches itself best
   standing still. Takes with no such stretch are skipped.
+- `--seeds 2,5` redoes only those takes; the others stay in `job.json`.
 
 Each loop's numbers add `period`, `start` (where in the take it was found), `seam` (cm of mismatch the blend
-hid; under about 5 cm is invisible on a walk), `speed` (m/s) and `way` (deg, 90 = its right).
+hid; under about 5 cm is invisible on a walk), `speed` (m/s), `way` (deg, 90 = its right) and `squared`
+(deg turned to square the way).
+
+### Mirrors
+
+`motion.py mirror JOB_DIR [--seeds ...]` writes `JOB_DIR_mirror/`: each take with left and right swapped
+(rotations from the twin joint, the path flipped across). A loop stays a loop with its way flipped. Use it
+when one side came out well and the other did not: strafes and side runs, which the model often runs
+diagonally on one side. A sword stance mirrors too, so the left foot leads; retarget the arms to your grip.
 
 ## Prompting
 
@@ -164,7 +176,8 @@ cuts in 8 directions, light cuts, thrusts, hit reactions, deaths, guards and loc
 - **Your own pipeline:** `npz["keypoints"]` gives world joint positions per frame, and `npz["poses"]`
   gives local SMPL-H rotations on the bundled template skeleton.
 - The model makes 22 body joints. The fingers carry the SMPL-H mean relaxed hand pose.
-- For walks, runs and idles, run `motion.py loop` on the job and use the `_loop` takes.
+- For walks, runs and idles, run `motion.py loop` on the job and use the `_loop` takes; `motion.py mirror`
+  gives the other side of a strafe.
 - The model learnt rotations from joint positions, so a turn of a bone about its own length is only
   loosely pinned. `--head steady` fixes the head. On the limbs it is small, but solve wrists and
   forearms from positions if your rig shows candy-wrapper twists.
