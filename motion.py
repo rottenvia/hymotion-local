@@ -217,9 +217,14 @@ def measure(k):
         step = np.linalg.norm(np.diff(k[:, toe][:, [0, 2]], axis=0), axis=1)
         skate += float(step[down[1:] & down[:-1]].sum())
     grip = np.linalg.norm(k[:, 20] - k[:, 21], axis=1)
+    left = k[:, 1] - k[:, 2]  # (the hips' own left: the ankles' order along it, each frame)
+    left[:, 1] = 0
+    left /= np.maximum(np.linalg.norm(left, axis=1, keepdims=True), 1e-9)
+    cross = max(0.0, -float(np.einsum("ij,ij->i", k[:, 7] - k[:, 8], left).min()))
     return dict(secs=round(len(k) / FPS, 2), fwd=round(float(d @ f0), 2), right=round(float(d @ side), 2),
                 far=round(float(far), 2), yaw=round(float(yaw[-1]), 1), yaw_max=round(float(np.abs(yaw).max()), 1),
-                lead=[round(float(v), 2) for v in lead], skate=round(skate, 2), grip=round(float(np.median(grip)), 2),
+                lead=[round(float(v), 2) for v in lead], skate=round(skate, 2), cross=round(cross, 2),
+                grip=round(float(np.median(grip)), 2),
                 hips=[round(float(hips[:, 1].min()), 2), round(float(hips[:, 1].max()), 2)])
 
 
@@ -229,7 +234,8 @@ def describe(m):
                 f"{m['way']:+.0f} deg (90 = its right); " + describe({k: v for k, v in m.items() if k != "period"}))
     lead = "/".join(("R" if v > 0 else "L") + f"{abs(v):.2f}" for v in m["lead"])
     return (f"fwd {m['fwd']:+.2f} right {m['right']:+.2f} (far {m['far']:.2f}) m, yaw {m['yaw']:+.0f} "
-            f"(max {m['yaw_max']:.0f}), lead foot {lead}, skate {m['skate']:.2f} m, hands {m['grip']:.2f} m apart, "
+            f"(max {m['yaw_max']:.0f}), lead foot {lead}, skate {m['skate']:.2f} m"
+            + (f", feet cross {m['cross']:.2f} m" if m.get("cross", 0) >= 0.05 else "") + f", hands {m['grip']:.2f} m apart, "
             f"hips {m['hips'][0]:.2f}-{m['hips'][1]:.2f}")
 
 
