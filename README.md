@@ -125,6 +125,8 @@ in `JOB_DIR_loop/` (BVH, npz, sheets and `job.json`, laid out like a job, so `sh
 - `--align travel` (the default) turns the loop so that it travels straight ahead, back, right or left,
   whichever is nearest: a sword stance walks 10-20 deg off its chest. `--align body` faces it +Z instead.
 - For an idle, ask for a longer, slower cycle: `--min 2 --max 4`.
+- `--speed` (m/s) skips stretches that move slower: a run that slows to a stop matches itself best
+  standing still. Takes with no such stretch are skipped.
 
 Each loop's numbers add `period`, `start` (where in the take it was found), `seam` (cm of mismatch the blend
 hid; under about 5 cm is invisible on a walk), `speed` (m/s) and `way` (deg, 90 = its right).

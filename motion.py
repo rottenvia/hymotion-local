@@ -7,7 +7,8 @@ driven by an AI agent or a person: prompt in, BVH/FBX clips plus a contact sheet
   python motion.py batch jobs.json [--out DIR] [--fbx]   (a list of jobs: {"prompt", "name", any flag above})
   python motion.py sheet JOB_DIR [--seed S] [--cols N]  (redraw a job's sheets; one take: a close-up)
   python motion.py fbx JOB_DIR                          (FBX copies of a job's BVH takes, through Blender)
-  python motion.py loop JOB_DIR [--min 0.5] [--max 2] [--blend 0.25] [--align travel|body] [--seeds S,..]
+  python motion.py loop JOB_DIR [--min 0.5] [--max 2] [--blend 0.25] [--align travel|body] [--speed 0]
+                       [--seeds S,..]
                                                         (JOB_loop/: each take's best cycle, seconds, as a
                                                         seamless loop, for walks, runs and idles)
   python motion.py doctor                               (check the install, GPU and weights)
@@ -306,11 +307,13 @@ def canon(k):
     return np.stack([c * p[..., 0] + s * p[..., 2], p[..., 1], -s * p[..., 0] + c * p[..., 2]], -1)
 
 
-def find_cycle(k, pmin, pmax, blend):
+def find_cycle(k, pmin, pmax, blend, speed=0.0):
     """(start, period, cost): the stretch of a take that best repeats itself, in frames. Cost: the mean
     joint distance in metres between its two ends over a few frames, poses in their own facing plus 0.1 s
     of the joints' velocities. Of the periods within 15% of the best cost the shortest wins (a gait's two
-    strides, not four). Half a gait cycle is the mirror pose, so it never passes for a whole one."""
+    strides, not four). Half a gait cycle is the mirror pose, so it never passes for a whole one. Only
+    stretches whose hips cover `speed` m/s or more count (a run that slows to a stop matches itself best
+    standing still)."""
     F = canon(k)
     V = np.gradient(F, axis=0) * FPS
     root = np.gradient(k[:, 0], axis=0) * FPS  # (the hips' speed, in each frame's facing)
@@ -323,13 +326,16 @@ def find_cycle(k, pmin, pmax, blend):
         d = (np.linalg.norm(F[:-P] - F[P:], axis=-1).mean(1) + 0.1 * np.linalg.norm(V[:-P] - V[P:], axis=-1).mean(1)
              + 0.1 * np.linalg.norm(rv[:-P] - rv[P:], axis=-1))
         d = np.convolve(d, np.ones(5) / 5, mode="same")
+        moved = np.linalg.norm((k[P:, 0] - k[:-P, 0])[:, [0, 2]], axis=1) * FPS / P
+        d[moved < speed] = np.inf
         lo, hi = blend + 2, n - 1 - P - 2  # (frames before the start feed the seam's blend)
         if hi <= lo:
             continue
         s0 = lo + int(np.argmin(d[lo:hi]))
-        best[P] = (s0, float(d[s0]))
+        if np.isfinite(d[s0]):
+            best[P] = (s0, float(d[s0]))
     if not best:
-        raise SystemExit(f"the take is too short for a period of {pmin}-{pmax} frames")
+        raise ValueError(f"no stretch repeats with a period of {pmin}-{pmax} frames at {speed} m/s or faster")
     low = min(c for _, c in best.values())
     P = min(P for P, (_, c) in best.items() if c <= low * 1.15 + 0.003)
     return best[P][0], P, best[P][1]
@@ -381,7 +387,7 @@ def make_loop(poses, trans, k, s, P, blend, align="travel"):
     return out, root - j[0]
 
 
-def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel"):
+def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel", speed=0.0):
     """<job>_loop/: each take's best cycle as a loop (BVH, npz, job.json with its numbers, sheets)."""
     job = json.loads((job_dir / "job.json").read_text())
     j, parents, sole = skeleton()
@@ -393,7 +399,11 @@ def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel"):
         if seeds and t["seed"] not in seeds:
             continue
         z = np.load(job_dir / t["npz"])
-        s, P, cost = find_cycle(z["keypoints"], round(pmin * FPS), round(pmax * FPS), round(blend * FPS))
+        try:
+            s, P, cost = find_cycle(z["keypoints"], round(pmin * FPS), round(pmax * FPS), round(blend * FPS), speed)
+        except ValueError as err:
+            print(f"   s{t['seed']}: skipped, {err}", flush=True)
+            continue
         poses, trans = make_loop(z["poses"], z["trans"], z["keypoints"], s, P, round(blend * FPS), align)
         k = fk(poses, trans, j, parents)
         rel = k[:, :22] - k[:, :1] * [1, 0, 1]
@@ -583,6 +593,7 @@ def main():
     lp.add_argument("--max", type=float, default=2.0)
     lp.add_argument("--blend", type=float, default=0.25)
     lp.add_argument("--align", choices=("travel", "body"), default="travel")
+    lp.add_argument("--speed", type=float, default=0.0)
     sub.add_parser("doctor")
     a = ap.parse_args()
     a.cwd = os.getcwd()
@@ -590,7 +601,7 @@ def main():
         os.chdir(HY)
         sys.path.insert(0, str(HY))
         d = Path(a.cwd, a.job).resolve()
-        return loop_job(d, [int(v) for v in a.seeds.split(",") if v.strip()], a.min, a.max, a.blend, a.align)
+        return loop_job(d, [int(v) for v in a.seeds.split(",") if v.strip()], a.min, a.max, a.blend, a.align, a.speed)
     if a.cmd in ("sheet", "fbx"):
         d = Path(a.job).resolve()
         job = json.loads((d / "job.json").read_text())
