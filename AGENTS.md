@@ -64,7 +64,10 @@ After each job, open `<out>/<name>/sheet1.png`; it is an image, so read it.
   running, everyday actions.
 - Unreliable: exact foot placement, exact weapon lines in fast swings (big swings twist the whole body),
   facing held over a long motion, and seamless loops or in-place motion. Fix these in post (trim, root
-  lock, loop blend) or choose another take.
+  lock) or choose another take.
+- Loops: generate a walk, run or idle of 4-5 s, then `python motion.py loop <out>/<name>` (idles:
+  `--min 2 --max 4`). It writes `<name>_loop/`, one seamless loop per take. Choose by its numbers: `seam`
+  under about 5 cm, `speed` near the speed your game moves at, and `skate` low.
 - No scene, camera, emotion, clothing or second person.
 
 ## 5. Hand the take over

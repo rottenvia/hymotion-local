@@ -63,6 +63,7 @@ python motion.py gen "A person swings a two-handed sword from the right shoulder
 python motion.py batch examples/sword_set.json --out clips
 python motion.py sheet motion_out/slash --seed 2      # a close-up of one take
 python motion.py fbx motion_out/slash                 # FBX copies through Blender
+python motion.py loop motion_out/walk                 # each take's best cycle as a seamless loop
 python motion.py doctor
 ```
 
@@ -107,6 +108,25 @@ Speed on an RTX 3060: the first new prompt costs about 1-2 minutes to load the t
 50 steps for 4 takes take about 40-45 s. The model always samples its full 12 s window and keeps your clip's
 frames, so a short clip is no faster than a long one, and trimming that window changes the result.
 
+### Loops
+
+The model can't make a loop itself: a walk drifts, and its last step never meets its first.
+`motion.py loop JOB_DIR` finds the stretch of each take that repeats best and turns it into a seamless loop
+in `JOB_DIR_loop/` (BVH, npz, sheets and `job.json`, laid out like a job, so `sheet` and `fbx` work on it):
+
+- It searches periods from `--min` to `--max` seconds (0.5-2 by default: a walk's or run's two strides).
+  It compares each frame with the frame one period later: joint positions in the body's own facing, plus
+  their velocities. Of the periods within 15% of the best match, the shortest wins, so it takes one gait
+  cycle, not two. Half a cycle is the mirror pose, so it never passes for a whole one.
+- The heading's drift over the cycle is taken out. The last `--blend` seconds (0.25) ease onto the same
+  phase one period earlier, so the last frame is the first one moved by a cycle's travel.
+- `--align travel` (the default) turns the loop so that it travels straight ahead, back, right or left,
+  whichever is nearest: a sword stance walks 10-20 deg off its chest. `--align body` faces it +Z instead.
+- For an idle, ask for a longer, slower cycle: `--min 2 --max 4`.
+
+Each loop's numbers add `period`, `start` (where in the take it was found), `seam` (cm of mismatch the blend
+hid; under about 5 cm is invisible on a walk), `speed` (m/s) and `way` (deg, 90 = its right).
+
 ## Prompting
 
 HY-Motion was trained on short English captions of one person's body movement. Its own "prompt rewriter"
@@ -140,6 +160,7 @@ cuts in 8 directions, light cuts, thrusts, hit reactions, deaths, guards and loc
 - **Your own pipeline:** `npz["keypoints"]` gives world joint positions per frame, and `npz["poses"]`
   gives local SMPL-H rotations on the bundled template skeleton.
 - The model makes 22 body joints. The fingers carry the SMPL-H mean relaxed hand pose.
+- For walks, runs and idles, run `motion.py loop` on the job and use the `_loop` takes.
 - The model learnt rotations from joint positions, so a turn of a bone about its own length is only
   loosely pinned. `--head steady` fixes the head. On the limbs it is small, but solve wrists and
   forearms from positions if your rig shows candy-wrapper twists.

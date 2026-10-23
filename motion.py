@@ -7,6 +7,9 @@ driven by an AI agent or a person: prompt in, BVH/FBX clips plus a contact sheet
   python motion.py batch jobs.json [--out DIR] [--fbx]   (a list of jobs: {"prompt", "name", any flag above})
   python motion.py sheet JOB_DIR [--seed S] [--cols N]  (redraw a job's sheets; one take: a close-up)
   python motion.py fbx JOB_DIR                          (FBX copies of a job's BVH takes, through Blender)
+  python motion.py loop JOB_DIR [--min 0.5] [--max 2] [--blend 0.25] [--align travel|body] [--seeds S,..]
+                                                        (JOB_loop/: each take's best cycle, seconds, as a
+                                                        seamless loop, for walks, runs and idles)
   python motion.py doctor                               (check the install, GPU and weights)
 
 Out: <out>/<name>/<name>_<seed>.bvh (+ .npz: world joints, SMPL-H poses), sheet*.png, job.json (the
@@ -221,6 +224,9 @@ def measure(k):
 
 
 def describe(m):
+    if "period" in m:  # (a loop: its cycle first)
+        return (f"loop {m['period']:.2f}s from {m['start']:.2f}s, seam {m['seam']:.1f} cm, {m['speed']:.2f} m/s at "
+                f"{m['way']:+.0f} deg (90 = its right); " + describe({k: v for k, v in m.items() if k != "period"}))
     lead = "/".join(("R" if v > 0 else "L") + f"{abs(v):.2f}" for v in m["lead"])
     return (f"fwd {m['fwd']:+.2f} right {m['right']:+.2f} (far {m['far']:.2f}) m, yaw {m['yaw']:+.0f} "
             f"(max {m['yaw_max']:.0f}), lead foot {lead}, skate {m['skate']:.2f} m, hands {m['grip']:.2f} m apart, "
@@ -283,6 +289,123 @@ def draw(job_dir, cols=8, seed=None):
         plt.close(fig)
         paths.append(p)
     return paths
+
+
+def canon(k):
+    """The 22 body joints of each frame in that frame's own facing, the hips' ground point at the origin."""
+    f = facing(k)
+    yaw = np.arctan2(f[:, 0], f[:, 2])
+    c, s = np.cos(yaw)[:, None], -np.sin(yaw)[:, None]
+    p = k[:, :22] - k[:, :1] * [1, 0, 1]
+    return np.stack([c * p[..., 0] + s * p[..., 2], p[..., 1], -s * p[..., 0] + c * p[..., 2]], -1)
+
+
+def find_cycle(k, pmin, pmax, blend):
+    """(start, period, cost): the stretch of a take that best repeats itself, in frames. Cost: the mean
+    joint distance in metres between its two ends over a few frames, poses in their own facing plus 0.1 s
+    of the joints' velocities. Of the periods within 15% of the best cost the shortest wins (a gait's two
+    strides, not four). Half a gait cycle is the mirror pose, so it never passes for a whole one."""
+    F = canon(k)
+    V = np.gradient(F, axis=0) * FPS
+    root = np.gradient(k[:, 0], axis=0) * FPS  # (the hips' speed, in each frame's facing)
+    f = facing(k)
+    yaw = np.arctan2(f[:, 0], f[:, 2])
+    c, s = np.cos(yaw), -np.sin(yaw)
+    rv = np.stack([c * root[:, 0] + s * root[:, 2], root[:, 1], -s * root[:, 0] + c * root[:, 2]], -1)
+    n, best = len(k), {}
+    for P in range(pmin, min(pmax, n - blend - 6) + 1):
+        d = (np.linalg.norm(F[:-P] - F[P:], axis=-1).mean(1) + 0.1 * np.linalg.norm(V[:-P] - V[P:], axis=-1).mean(1)
+             + 0.1 * np.linalg.norm(rv[:-P] - rv[P:], axis=-1))
+        d = np.convolve(d, np.ones(5) / 5, mode="same")
+        lo, hi = blend + 2, n - 1 - P - 2  # (frames before the start feed the seam's blend)
+        if hi <= lo:
+            continue
+        s0 = lo + int(np.argmin(d[lo:hi]))
+        best[P] = (s0, float(d[s0]))
+    if not best:
+        raise SystemExit(f"the take is too short for a period of {pmin}-{pmax} frames")
+    low = min(c for _, c in best.values())
+    P = min(P for P, (_, c) in best.items() if c <= low * 1.15 + 0.003)
+    return best[P][0], P, best[P][1]
+
+
+def make_loop(poses, trans, k, s, P, blend, align="travel"):
+    """The cycle s..s+P as a seamless loop (P + 1 frames, the last one the first moved by a cycle's travel):
+    the heading's drift over the cycle taken out, the last `blend` frames eased onto the cycle before it
+    (the same phase one period earlier), and the whole loop turned to face +Z on average (align "body"),
+    or (align "travel") so that it travels straight ahead, right, back or left, whichever is nearest; its
+    hips start over the origin. Returns (poses, trans)."""
+    from scipy.spatial.transform import Rotation
+    j = skeleton()[0]
+    nj = poses.shape[1] // 3
+    q = Rotation.from_rotvec(poses.reshape(-1, 3)).as_quat().reshape(len(poses), nj, 4)
+    f = facing(k)
+    yaw = np.unwrap(np.arctan2(f[:, 0], f[:, 2]))
+    drift = yaw[s + P] - yaw[s]
+
+    def turned(qr, a):  # (a root rotation turned by a about the vertical)
+        return (Rotation.from_rotvec([0, a, 0]) * Rotation.from_quat(qr)).as_quat()
+    for i in range(s, s + P + 1):  # (each frame's heading eased back by its share of the drift)
+        q[i, 0] = turned(q[i, 0], -drift * (i - s) / P)
+    for i in range(s - blend, s + 1):  # (the cycle before keeps its own frames' share: same phase, same turn)
+        q[i, 0] = turned(q[i, 0], -drift * (i - s + P) / P + drift)
+    D = trans[s + P] - trans[s]
+    D[1] = 0
+    oq, ot = q[s:s + P + 1].copy(), trans[s:s + P + 1].copy()
+    for i in range(P - blend, P + 1):
+        w = (i - (P - blend)) / blend
+        w = w * w * (3 - 2 * w)
+        a, b = q[s + i], q[s + i - P]
+        b = b * np.sign(np.sum(a * b, axis=1, keepdims=True) + 1e-12)
+        m = (1 - w) * a + w * b
+        oq[i] = m / np.linalg.norm(m, axis=1, keepdims=True)
+        ot[i] = (1 - w) * trans[s + i] + w * (trans[s + i - P] + D)
+    out = Rotation.from_quat(oq.reshape(-1, 4)).as_rotvec().reshape(P + 1, -1)
+    kk = fk(out, ot, j, skeleton()[1])
+    f = facing(kk)
+    face = np.arctan2(f[:, 0].mean(), f[:, 2].mean())
+    trav = Rotation.from_rotvec([0, -face, 0]).apply(D)
+    if align == "travel" and np.hypot(trav[0], trav[2]) > 0.05:  # (its way onto the nearest of ahead, right,
+        way = np.arctan2(-trav[0], trav[2])  # back and left: a sword stance walks 10-20 deg off its chest)
+        face -= way - np.round(way / (np.pi / 2)) * (np.pi / 2)
+    R = Rotation.from_rotvec([0, -face, 0])
+    out[:, :3] = (R * Rotation.from_rotvec(out[:, :3])).as_rotvec()
+    root = R.apply(j[0] + ot)
+    root[:, [0, 2]] -= root[0, [0, 2]]
+    return out, root - j[0]
+
+
+def loop_job(job_dir, seeds, pmin, pmax, blend, align="travel"):
+    """<job>_loop/: each take's best cycle as a loop (BVH, npz, job.json with its numbers, sheets)."""
+    job = json.loads((job_dir / "job.json").read_text())
+    j, parents, sole = skeleton()
+    name = job["name"] + "_loop"
+    d = job_dir.parent / name
+    d.mkdir(exist_ok=True)
+    takes = []
+    for t in job["takes"]:
+        if seeds and t["seed"] not in seeds:
+            continue
+        z = np.load(job_dir / t["npz"])
+        s, P, cost = find_cycle(z["keypoints"], round(pmin * FPS), round(pmax * FPS), round(blend * FPS))
+        poses, trans = make_loop(z["poses"], z["trans"], z["keypoints"], s, P, round(blend * FPS), align)
+        k = fk(poses, trans, j, parents)
+        rel = k[:, :22] - k[:, :1] * [1, 0, 1]
+        assert np.abs(rel[-1] - rel[0]).max() < 1e-3, "the loop's ends don't meet"
+        stem = f"{name}_{t['seed']}"
+        np.savez(d / f"{stem}.npz", keypoints=k, poses=poses, trans=trans, fps=FPS)
+        write_bvh(d / f"{stem}.bvh", poses, trans, j, parents, sole)
+        m = measure(k)
+        trav = k[-1, 0] - k[0, 0]
+        m.update(start=round(s / FPS, 2), period=round(P / FPS, 2), seam=round(cost * 100, 1),
+                 speed=round(float(np.linalg.norm(trav[[0, 2]])) * FPS / P, 2),
+                 way=round(float(np.degrees(np.arctan2(-trav[0], trav[2]))), 0) if np.linalg.norm(trav[[0, 2]]) > 0.05 else 0.0)
+        takes.append(dict(seed=t["seed"], bvh=f"{stem}.bvh", npz=f"{stem}.npz", m=m))
+        print(f"   s{t['seed']}: {describe(m)}", flush=True)
+    (d / "job.json").write_text(json.dumps({**job, "name": name, "loop": dict(min=pmin, max=pmax, blend=blend, align=align),
+                                            "takes": takes}, indent=1))
+    for p in draw(d, job.get("cols", 8)):
+        print(f"   sheet {p}", flush=True)
 
 
 def blender():
@@ -447,9 +570,21 @@ def main():
     sh.add_argument("--seed", type=int)
     sh.add_argument("--cols", type=int)
     sub.add_parser("fbx").add_argument("job")
+    lp = sub.add_parser("loop")
+    lp.add_argument("job")
+    lp.add_argument("--seeds", default="")
+    lp.add_argument("--min", type=float, default=0.5)
+    lp.add_argument("--max", type=float, default=2.0)
+    lp.add_argument("--blend", type=float, default=0.25)
+    lp.add_argument("--align", choices=("travel", "body"), default="travel")
     sub.add_parser("doctor")
     a = ap.parse_args()
     a.cwd = os.getcwd()
+    if a.cmd == "loop":
+        os.chdir(HY)
+        sys.path.insert(0, str(HY))
+        d = Path(a.cwd, a.job).resolve()
+        return loop_job(d, [int(v) for v in a.seeds.split(",") if v.strip()], a.min, a.max, a.blend, a.align)
     if a.cmd in ("sheet", "fbx"):
         d = Path(a.job).resolve()
         job = json.loads((d / "job.json").read_text())
